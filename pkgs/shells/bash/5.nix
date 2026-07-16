@@ -113,6 +113,20 @@ lib.warnIf (withDocs != null)
     ++ lib.optionals (stdenv.hostPlatform.libc == "musl") [
       "--disable-nls"
     ]
+    ++ lib.optionals stdenv.hostPlatform.isDarwin [
+      # Bash 5.3 bundles gettext 0.21's setlocale() replacement (lib/intl/setlocale.c),
+      # which 5.2's bundled gettext 0.12 did not have. On Darwin, its
+      # setlocale (LC_ALL, "") path falls back to CFLocaleCopyPreferredLanguages() to
+      # guess a locale, pulling CoreFoundation into the shell. CoreFoundation is not
+      # fork-safe, so any forked subshell that reaches that path crashes.
+      #
+      # Bash takes it whenever a temporary LANG=/LC_ALL= assignment is unwound and no
+      # locale is left in the environment (dispose_temporary_env -> sv_locale ->
+      # reset_locale_vars). stdenv's isELF/isMachO do exactly that with `LANG=C read`,
+      # so e.g. wrapQtAppsHook segfaults in the (locale-less) builder env.
+      # https://github.com/NixOS/nixpkgs/issues/431934
+      "--disable-nls"
+    ]
     ++ lib.optionals stdenv.hostPlatform.isFreeBSD [
       # /dev/fd is optional on FreeBSD. we need it to work when built on a system
       # with it and transferred to a system without it! This includes linux cross.
